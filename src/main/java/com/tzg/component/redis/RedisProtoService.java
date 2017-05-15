@@ -24,10 +24,10 @@ public interface RedisProtoService< K, V > {
 
     List< ? > selectList( String key );
 
-    Map< ?, ? > getMap( String key );
+    Map< ?, ? > selectMap( String key );
 
-    Set< ? > getSet( String key );
+    Set< ? > selectSet( String key );
 
-    Set< ? > getZSet( String key );
+    Set< ? > selectZSet( String key );
 
 }
