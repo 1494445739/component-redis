@@ -24,7 +24,7 @@ public interface RedisProtoService< K, V > {
 
     List< ? > selectList( String key );
 
-    Map< ?, ? > get( String key );
+    Map< ?, ? > getMap( String key );
 
     Set< ? > getSet( String key );
 

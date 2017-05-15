@@ -83,7 +83,7 @@ public class RedisProtoServiceImpl< K, V > implements RedisProtoService< K, V > 
     }
 
     @Override
-    public Map< ?, ? > get( String key ) {
+    public Map< ?, ? > getMap( String key ) {
         return redisTemplate.opsForHash().entries( key );
     }
 
