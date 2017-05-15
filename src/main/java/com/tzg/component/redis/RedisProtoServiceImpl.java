@@ -83,17 +83,17 @@ public class RedisProtoServiceImpl< K, V > implements RedisProtoService< K, V > 
     }
 
     @Override
-    public Map< ?, ? > getMap( String key ) {
+    public Map< ?, ? > selectMap( String key ) {
         return redisTemplate.opsForHash().entries( key );
     }
 
     @Override
-    public Set< ? > getSet( String key ) {
+    public Set< ? > selectSet( String key ) {
         return redisTemplate.opsForSet().members( key );
     }
 
     @Override
-    public Set< ? > getZSet( String key ) {
+    public Set< ? > selectZSet( String key ) {
         ZSetOperations< Serializable, Object > operations = redisTemplate.opsForZSet();
         Long                                   size       = operations.size( key );
         return operations.rangeByScore( key, 0, size );
