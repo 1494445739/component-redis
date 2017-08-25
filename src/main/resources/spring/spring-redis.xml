@@ -1,36 +1,78 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:cache="http://www.springframework.org/schema/cache"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
-    http://www.springframework.org/schema/beans/spring-beans-3.1.xsd">
+	   http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+	   http://www.springframework.org/schema/cache
+	   http://www.springframework.org/schema/cache/spring-cache-4.2.xsd">
 
-    <bean id="jedisConfig" class="redis.clients.jedis.JedisPoolConfig">
-        <property name="maxIdle" value="#{props['redis.maxIdle']}"/>
-        <property name="maxTotal" value="#{props['redis.maxTotal']}"/>
-        <property name="maxWaitMillis" value="#{props['redis.maxWaitMillis']}"/>
-        <property name="testOnBorrow" value="#{props['redis.testOnBorrow']}"/>
+    <bean id="poolConfig" class="redis.clients.jedis.JedisPoolConfig" depends-on="redisConf">
+        <property name="maxIdle" value="#{redisConf['redis.pool.maxIdle']}"/>
+        <property name="maxTotal" value="#{redisConf['redis.pool.maxTotal']}"/>
+        <property name="testOnBorrow" value="#{redisConf['redis.pool.testOnBorrow']}"/>
+        <property name="maxWaitMillis" value="#{redisConf['redis.pool.maxWaitMillis']}"/>
     </bean>
 
-    <bean id="redisFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
-        <property name="hostName" value="#{props['redis.host']}"></property>
-        <property name="port" value="#{props['redis.port']}"></property>
-        <property name="password" value="#{props['redis.password']}"></property>
-        <property name="poolConfig" ref="jedisConfig"></property>
+    <!-- 集群配置 -->
+    <bean id="jedisCluster" class="com.tzg.component.redis.cluster.factory.JedisClusterFactory">
+        <property name="jedisPoolConfig" ref="poolConfig"/>
+        <property name="timeout" value="#{redisConf['redis.cluster.timeout']}"/>
+        <property name="maxAttempts" value="#{redisConf['redis.cluster.maxAttempts']}"/>
+        <property name="hostAndPorts" value="#{redisConf['redis.cluster.hostAndPorts']}"/>
     </bean>
 
-    <bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
-        <property name="connectionFactory" ref="redisFactory"/>
-        <property name="keySerializer">
-            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
-        </property>
-        <property name="valueSerializer">
-            <bean class="org.springframework.data.redis.serializer.JdkSerializationRedisSerializer"/>
-        </property>
-        <property name="hashKeySerializer">
-            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
-        </property>
-        <property name="hashValueSerializer">
-            <bean class="org.springframework.data.redis.serializer.JdkSerializationRedisSerializer"/>
+    <!-- redis客户端接口(集群实现) -->
+    <bean id="redisService" class="com.tzg.component.redis.cluster.service.impl.RedisClusterServiceImpl">
+        <property name="jedisCluster" ref="jedisCluster"/>
+    </bean>
+
+    <!-- spring缓存redis实现 -->
+    <bean id="redisCache" class="com.tzg.component.redis.cache.impl.RedisCacheImpl">
+        <property name="name" value="redisCache"/>
+        <property name="redisService" ref="redisService"/>
+    </bean>
+
+    <!-- spring缓存管理器 -->
+    <bean id="redisCacheManager" class="org.springframework.cache.support.SimpleCacheManager">
+        <property name="caches">
+            <set>
+                <ref bean="redisCache"/>
+            </set>
         </property>
     </bean>
+
+    <!-- ================================================================== -->
+    <!--                                                                    -->
+    <!-- spring4默认的KeyGenerator(生成策略)就是SimpleKeyGenerator, 默认如下:  -->
+    <!--                                                                    -->
+    <!-- 1 如果方法没有参数，则使用0作为key                                     -->
+    <!-- 2 如果只有一个参数的话，则使用该参数作为key                             -->
+    <!-- 3 如果参数多于一个的话，则使用所有参数的hashCode作为key                 -->
+    <!--                                                                    -->
+    <!-- ================================================================== -->
+    <bean id="simpleKeyGenerator"
+          class="org.springframework.cache.interceptor.SimpleKeyGenerator"/>
+
+    <!-- ================================================================== -->
+    <!--                                                                    -->
+    <!-- 基于注解配置：启用缓存注解 mode 属性,可选值有proxy和aspectj             -->
+    <!--                                                                    -->
+    <!-- 1 proxy: 默认值。只有缓存方法在外部被调用的时候Spring Cache才会发生作用， -->
+    <!--          这也就意味着如果一个缓存方法在其声明对象内部被调用时，spring     -->
+    <!--          cache是不会发生作用的。如果mode为aspect时就不会有这种问题。    -->
+    <!--          此外使用proxy时，只有public方法上的@Cacheable等标注才会起作用，-->
+    <!--          如果需要非public方法上的方法也可以使用Spring Cache时把mode设置 -->
+    <!--          为aspectj。                                               -->
+    <!--                                                                    -->
+    <!-- 2 proxy-target-class:                                              -->
+    <!--          表示是否要代理class，默认为false，采用JDK代理可以代理接口（即   -->
+    <!--          缓存注解可以作用于接口方法上），当值为true或mode为aspectj是基   -->
+    <!--          于class进行操作，定义在接口上的缓存注解将会被忽略               -->
+    <!--                                                                    -->
+    <!-- ================================================================== -->
+    <cache:annotation-driven cache-manager="redisCacheManager"
+                             key-generator="simpleKeyGenerator"
+                             proxy-target-class="false"/>
 
 </beans>
